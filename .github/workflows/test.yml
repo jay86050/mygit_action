@@ -53,22 +53,36 @@ jobs:
           echo "Repository ID: $REPO_ID"
           echo "REPO_ID=$REPO_ID" >> $GITHUB_ENV
 
-      - name: Get Category ID
+      - name: Get Category ID for General Category
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO_OWNER: jay86050
+          REPO_NAME: mygit_action
         run: |
-          echo "Category ID: $CATEGORY_ID" # Ensure CATEGORY_ID is being passed correctly
+          echo "Fetching category ID for 'General'..."
           
+          CATEGORY_ID=$(curl -s -X POST -H "Authorization: Bearer $GH_TOKEN" \
+            -H "Accept: application/vnd.github.v4+json" \
+            -H "Content-Type: application/json" \
+            --data '{"query": "query { repository(owner: \"'$REPO_OWNER'\", name: \"'$REPO_NAME'\") { discussions(first: 1) { edges { node { category { id name } } } } } }"}' \
+            https://api.github.com/graphql | jq -r '.data.repository.discussions.edges[0].node.category.id')
+
+          if [ -z "$CATEGORY_ID" ] || [ "$CATEGORY_ID" == "null" ]; then
+            echo "Error: Could not retrieve category ID for 'General'."
+            exit 1
+          fi
+
+          echo "Category ID: $CATEGORY_ID"
+          echo "CATEGORY_ID=$CATEGORY_ID" >> $GITHUB_ENV
+
       - name: Create Discussion in GitHub
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           REPO_ID: ${{ env.REPO_ID }}
-          CATEGORY_ID: "43701223"  # Ensure this is a valid category ID
+          CATEGORY_ID: ${{ env.CATEGORY_ID }}
         run: |
           echo "Creating discussion in GitHub..."
-
-          echo "Commit Message: $COMMIT_MESSAGE"
-          echo "Repository ID: $REPO_ID"
-          echo "Category ID: $CATEGORY_ID"
-
+          
           GRAPHQL_QUERY=$(jq -n \
             --arg repoId "$REPO_ID" \
             --arg categoryId "$CATEGORY_ID" \
@@ -76,7 +90,7 @@ jobs:
             --arg body "*Commit Details:*\n\n- **Commit Hash:** $COMMIT_HASH\n- **Author:** $AUTHOR_NAME (<$AUTHOR_GITHUB>)\n- **Commit Message:** $COMMIT_MESSAGE" \
             '{ "query": "mutation createDiscussion($repoId: ID!, $categoryId: ID!, $title: String!, $body: String!) { createDiscussion(input: {repositoryId: $repoId, categoryId: $categoryId, title: $title, body: $body}) { discussion { id } } }" }')
 
-          echo "GraphQL Query: $GRAPHQL_QUERY"  # Debugging the query
+          echo "GraphQL Query: $GRAPHQL_QUERY"
 
           curl -X POST \
             -H "Authorization: Bearer $GH_TOKEN" \

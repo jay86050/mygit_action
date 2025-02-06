@@ -33,7 +33,7 @@ jobs:
     
       - name: Get GitHub Discussion Category ID
         env:
-          GH_TOKEN: ${{ secrets.CICD }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           REPO_OWNER: jay86050
           REPO_NAME: mygit_action
         run: |
@@ -47,7 +47,7 @@ jobs:
     
       - name: Create Discussion in GitHub
         env:
-          GH_TOKEN: ${{ secrets.CICD }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           REPO_OWNER: jay86050
           REPO_NAME: mygit_action
         run: |

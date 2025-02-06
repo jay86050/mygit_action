@@ -22,6 +22,10 @@ jobs:
           AUTHOR_NAME=$(git log -1 --pretty=format:"%an")
           AUTHOR_GITHUB=$(git log -1 --pretty=format:"%ae")
     
+          echo "Commit Message: $COMMIT_MESSAGE"
+          echo "Commit Hash: $COMMIT_HASH"
+          echo "Author: $AUTHOR_NAME <$AUTHOR_GITHUB>"
+    
           echo "COMMIT_MESSAGE=$COMMIT_MESSAGE" >> $GITHUB_ENV
           echo "COMMIT_HASH=$COMMIT_HASH" >> $GITHUB_ENV
           echo "AUTHOR_NAME=$AUTHOR_NAME" >> $GITHUB_ENV
@@ -36,62 +40,58 @@ jobs:
 
           echo "Fetching repository and category IDs..."
           
-          REPO_ID=$(curl -s -X POST -H "Authorization: Bearer $GH_TOKEN" \
+          RESPONSE=$(curl -s -X POST -H "Authorization: Bearer $GH_TOKEN" \
             -H "Accept: application/vnd.github.v4+json" \
             -H "Content-Type: application/json" \
             --data '{"query": "query { repository(owner: \"'$REPO_OWNER'\", name: \"'$REPO_NAME'\") { id discussions(first: 1) { edges { node { category { id name } } } } } }"}' \
             https://api.github.com/graphql)
 
-          REPO_ID=$(echo "$REPO_ID" | jq -r '.data.repository.id')
-          CATEGORY_ID=$(echo "$REPO_ID" | jq -r '.data.repository.discussions.edges[0].node.category.id')
+          echo "API Response: $RESPONSE"
 
-          if [[ -z "$REPO_ID" || "$REPO_ID" == "null" ]]; then
-            echo "Error: Could not retrieve repository ID."
+          REPO_ID=$(echo "$RESPONSE" | jq -r '.data.repository.id // empty')
+          CATEGORY_ID=$(echo "$RESPONSE" | jq -r '.data.repository.discussions.edges[0].node.category.id // empty')
+
+          if [[ -z "$REPO_ID" ]]; then
+            echo "Error: Repository ID not found."
             exit 1
           fi
 
-          if [[ -z "$CATEGORY_ID" || "$CATEGORY_ID" == "null" ]]; then
-            echo "Error: Could not retrieve category ID."
+          if [[ -z "$CATEGORY_ID" ]]; then
+            echo "Error: Category ID not found."
             exit 1
           fi
 
           echo "REPO_ID=$REPO_ID" >> $GITHUB_ENV
           echo "CATEGORY_ID=$CATEGORY_ID" >> $GITHUB_ENV
 
-      - name: Capture Logs from GitHub Actions (With Retry)
+      - name: Fetch Workflow Logs
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           echo "Fetching logs from GitHub Actions..."
-          REPO=${{ github.repository }}
-          RUN_ID=${{ github.run_id }}
-          LOGS_URL="https://api.github.com/repos/$REPO/actions/runs/$RUN_ID/logs"
 
-          MAX_ATTEMPTS=12
-          WAIT_TIME=10
-          ATTEMPT=0
+          RUN_ID=$(curl -s -H "Authorization: Bearer $GH_TOKEN" \
+            "https://api.github.com/repos/${{ github.repository }}/actions/runs?per_page=1" | \
+            jq -r '.workflow_runs[0].id // empty')
 
-          while [[ $ATTEMPT -lt $MAX_ATTEMPTS ]]; do
-            echo "Attempt $((ATTEMPT+1))/$MAX_ATTEMPTS: Fetching logs..."
-            RESPONSE=$(curl -s -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/vnd.github.v3+json" "$LOGS_URL")
-
-            if ! echo "$RESPONSE" | jq -e 'has("message")' > /dev/null; then
-              echo "$RESPONSE" > logs.txt
-              break
-            fi
-
-            ERROR_MESSAGE=$(echo "$RESPONSE" | jq -r '.message')
-            echo "Logs not available yet. Retrying in $WAIT_TIME seconds... (Error: $ERROR_MESSAGE)"
-            sleep $WAIT_TIME
-            ((ATTEMPT++))
-          done
-
-          if [[ $ATTEMPT -ge $MAX_ATTEMPTS ]]; then
-            echo "Failed to fetch logs after $MAX_ATTEMPTS attempts. Exiting."
+          if [[ -z "$RUN_ID" ]]; then
+            echo "Error: Could not retrieve workflow run ID."
             exit 1
           fi
 
-          LOGS=$(tail -n 50 logs.txt)
+          echo "Run ID: $RUN_ID"
+
+          LOGS_URL="https://api.github.com/repos/${{ github.repository }}/actions/runs/$RUN_ID/logs"
+
+          LOGS=$(curl -s -H "Authorization: Bearer $GH_TOKEN" "$LOGS_URL")
+
+          if [[ -z "$LOGS" ]]; then
+            echo "Error: Could not retrieve logs."
+            exit 1
+          fi
+
+          echo "Workflow Logs Fetched Successfully"
+
           echo "LOGS=$LOGS" >> $GITHUB_ENV
 
       - name: Create Discussion in GitHub
@@ -99,6 +99,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           REPO_ID: ${{ env.REPO_ID }}
           CATEGORY_ID: ${{ env.CATEGORY_ID }}
+          LOGS: ${{ env.LOGS }}
         run: |
           echo "Creating discussion in GitHub..."
           
@@ -106,8 +107,8 @@ jobs:
             --arg repoId "$REPO_ID" \
             --arg categoryId "$CATEGORY_ID" \
             --arg title "New Commit: $COMMIT_MESSAGE" \
-            --arg body "*Commit Details:*\n\n- **Commit Hash:** $COMMIT_HASH\n- **Author:** $AUTHOR_NAME (<$AUTHOR_GITHUB>)\n- **Commit Message:** $COMMIT_MESSAGE\n\n*Commit Logs (last 50 lines):*\n\n\`\`\`\n$LOGS\n\`\`\`" \
-            '{ "query": "mutation createDiscussion($repoId: ID!, $categoryId: ID!, $title: String!, $body: String!) { createDiscussion(input: {repositoryId: $repoId, categoryId: $categoryId, title: $title, body: $body}) { discussion { id } } } }', "variables": { "repoId": $repoId, "categoryId": $categoryId, "title": $title, "body": $body }}')
+            --arg body "*Commit Details:*\n\n- **Commit Hash:** $COMMIT_HASH\n- **Author:** $AUTHOR_NAME (<$AUTHOR_GITHUB>)\n- **Commit Message:** $COMMIT_MESSAGE\n\n*Workflow Logs (last 50 lines):*\n\n\`\`\`\n$(echo "$LOGS" | tail -n 50)\n\`\`\`" \
+            '{ "query": "mutation createDiscussion($repoId: ID!, $categoryId: ID!, $title: String!, $body: String!) { createDiscussion(input: {repositoryId: $repoId, categoryId: $categoryId, title: $title, body: $body}) { discussion { id } } }", "variables": { "repoId": $repoId, "categoryId": $categoryId, "title": $title, "body": $body } }')
 
           echo "GraphQL Query: $GRAPHQL_QUERY"
 

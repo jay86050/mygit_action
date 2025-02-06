@@ -33,17 +33,22 @@ jobs:
     
       - name: Get GitHub Discussion Category ID
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.CICD }}
           REPO_OWNER: jay86050
           REPO_NAME: mygit_action
         run: |
           echo "Fetching Discussion Category ID..."
           CATEGORY_ID=$(curl -s -H "Authorization: token $GH_TOKEN" \
             -H "Accept: application/vnd.github.v3+json" \
-            https://api.github.com/repos/$REPO_OWNER/$REPO_NAME/discussions/categories \
-            | jq '.[] | select(.name == "General") | .id')
-    
+            https://api.github.com/repos/$REPO_OWNER/$REPO_NAME/discussions/categories | jq -r '.categories[] | select(.name=="General") | .id')
+      
+          if [ -z "$CATEGORY_ID" ]; then
+            echo "Error: Could not retrieve category ID. Check API permissions."
+            exit 1
+          fi
+      
           echo "CATEGORY_ID=$CATEGORY_ID" >> $GITHUB_ENV
+
     
       - name: Create Discussion in GitHub
         env:

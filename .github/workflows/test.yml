@@ -30,7 +30,7 @@ jobs:
           echo "COMMIT_HASH=$COMMIT_HASH" >> $GITHUB_ENV
           echo "AUTHOR_NAME=$AUTHOR_NAME" >> $GITHUB_ENV
           echo "AUTHOR_GITHUB=$AUTHOR_GITHUB" >> $GITHUB_ENV
-
+         
       - name: Get Repository ID
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -83,11 +83,14 @@ jobs:
         run: |
           echo "Creating discussion in GitHub..."
           
+          LOG_OUTPUT=$(git log -1 --pretty=format:"%b")
+          echo "Log Output: $LOG_OUTPUT"
+          
           GRAPHQL_QUERY=$(jq -n \
             --arg repoId "$REPO_ID" \
             --arg categoryId "$CATEGORY_ID" \
             --arg title "New Commit: $COMMIT_MESSAGE" \
-            --arg body "*Commit Details:*\n\n- **Commit Hash:** $COMMIT_HASH\n- **Author:** $AUTHOR_NAME (<$AUTHOR_GITHUB>)\n- **Commit Message:** $COMMIT_MESSAGE" \
+            --arg body "*Commit Details:*\n\n- **Commit Hash:** $COMMIT_HASH\n- **Author:** $AUTHOR_NAME (<$AUTHOR_GITHUB>)\n- **Commit Message:** $COMMIT_MESSAGE\n\n*Commit Logs:*\n\n\`\`\`\n$LOG_OUTPUT\n\`\`\`" \
             '{ "query": "mutation createDiscussion($repoId: ID!, $categoryId: ID!, $title: String!, $body: String!) { createDiscussion(input: {repositoryId: $repoId, categoryId: $categoryId, title: $title, body: $body}) { discussion { id } } }", "variables": { "repoId": $repoId, "categoryId": $categoryId, "title": $title, "body": $body } }')
 
           echo "GraphQL Query: $GRAPHQL_QUERY"

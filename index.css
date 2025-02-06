@@ -1,0 +1,32 @@
+body {
+  margin: 20px;
+  /* font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+    sans-serif; */
+  font-family: Open Sans Narrow;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+code {
+  font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
+    monospace;
+}
+
+
+.css-c8wlay{
+  justify-content: center !important;
+}
+
+.css-1y6muhj-MuiTableCell-root, .css-pyc24c-MuiTableCell-root, .css-5ybv2y-MuiTableCell-root, .css-1rvgqh9-MuiTableCell-root, .css-irlfbo-MuiTableCell-root,
+.css-xjyhk3-MuiTableCell-root, .css-1cdiauv-MuiTableCell-root, .css-9cwxrb-MuiTableCell-root, .css-1jiibj6-MuiTableCell-root, .css-1jaqrzt-MuiTableCell-root,
+.css-f85b5e-MuiTableCell-root, .css-3zh13d-MuiTableCell-root, .css-hz0dz3-MuiTableCell-root, .css-1o49spc-MuiTableCell-root, .css-96r21q-MuiTableCell-root,
+.css-pvaj17-MuiTableCell-root, .css-1v8fqgp-MuiTableCell-root, .css-10dziym-MuiTableCell-root, .css-13qmssp-MuiTableCell-root, .css-1dwvyzn-MuiTableCell-root, 
+.css-1lm4m22-MuiTableCell-root, .css-okswfy-MuiTableCell-root, .css-1a7y00z-MuiTableCell-root, .css-2mpr3n-MuiTableCell-root, .css-zsuv44-MuiTableCell-root, 
+.css-19ec39j-MuiTableCell-root, .css-8u3zr4-MuiTableCell-root, .css-oabhi2-MuiTableCell-root {
+  justify-content: center !important;
+}
+
+.custom-table .MuiTableCell-root {
+  border: none; 
+}

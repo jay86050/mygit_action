@@ -3,7 +3,7 @@ name: Commit Discussion on GitHub
 on:
   push:
     branches:
-      - main  # Triggers when a commit is pushed to the 'main' branch.
+      - main  # Runs on commits pushed to 'main' branch
 
 jobs:
   create-discussion:
@@ -22,24 +22,19 @@ jobs:
           AUTHOR_NAME=$(git log -1 --pretty=format:"%an")
           AUTHOR_GITHUB=$(git log -1 --pretty=format:"%ae")
 
-          echo "Commit Message: $COMMIT_MESSAGE"
-          echo "Commit Hash: $COMMIT_HASH"
-          echo "Author: $AUTHOR_NAME <$AUTHOR_GITHUB>"
-
-          # Store values in environment variables for later use
           echo "COMMIT_MESSAGE=$COMMIT_MESSAGE" >> $GITHUB_ENV
           echo "COMMIT_HASH=$COMMIT_HASH" >> $GITHUB_ENV
           echo "AUTHOR_NAME=$AUTHOR_NAME" >> $GITHUB_ENV
           echo "AUTHOR_GITHUB=$AUTHOR_GITHUB" >> $GITHUB_ENV
 
-      - name: Create Discussion in GitHub
+      - name: Create Discussion on GitHub
         env:
-          GITHUB_TOKEN: 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
+          GITHUB_TOKEN: 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  # ⚠️ Hardcoded token (DANGEROUS)
           REPO_OWNER: jay86050
           REPO_NAME: mygit_action
-          CATEGORY_ID: 1  # Change this to the correct ID for "General" discussions
+          CATEGORY_ID: 123456  # Replace with actual ID for "General" discussions
         run: |
-          echo "Creating discussion in GitHub..."
+          echo "Creating a new GitHub Discussion..."
 
           DISCUSSION_PAYLOAD=$(jq -n \
             --arg title "New Commit: $COMMIT_MESSAGE" \
@@ -47,9 +42,11 @@ jobs:
             --argjson category_id "$CATEGORY_ID" \
             '{title: $title, body: $body, category_id: $category_id}')
 
-          curl -X POST \
+          RESPONSE=$(curl -X POST \
             -H "Authorization: token $GITHUB_TOKEN" \
             -H "Accept: application/vnd.github.v3+json" \
             -H "Content-Type: application/json" \
             -d "$DISCUSSION_PAYLOAD" \
-            https://api.github.com/repos/$REPO_OWNER/$REPO_NAME/discussions
+            https://api.github.com/repos/$REPO_OWNER/$REPO_NAME/discussions)
+
+          echo "GitHub API Response: $RESPONSE"

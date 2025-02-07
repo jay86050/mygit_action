@@ -1,4 +1,4 @@
-name: Commit Discussion on GitHub
+name: Commit Discussion on GitHub 
 
 on:
   push:
@@ -75,26 +75,46 @@ jobs:
           echo "Category ID: $CATEGORY_ID"
           echo "CATEGORY_ID=$CATEGORY_ID" >> $GITHUB_ENV
 
+      - name: Capture Logs from GitHub Actions
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "Fetching logs from GitHub Actions..."
+          RUN_ID=${{ github.run_id }}
+          REPO=${{ github.repository }}
+          
+          LOGS=$(curl -s -H "Authorization: Bearer $GH_TOKEN" \
+            -H "Accept: application/vnd.github.v3+json" \
+            "https://api.github.com/repos/$REPO/actions/runs/$RUN_ID/logs" \
+            | base64 -w 0)
+
+          if [ -z "$LOGS" ] || [ "$LOGS" == "null" ]; then
+            echo "Error: Could not retrieve logs."
+            exit 1
+          fi
+
+          echo "Logs fetched successfully!"
+          echo "LOGS=$LOGS" >> $GITHUB_ENV
+
       - name: Create Discussion in GitHub
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           REPO_ID: ${{ env.REPO_ID }}
           CATEGORY_ID: ${{ env.CATEGORY_ID }}
+          LOGS: ${{ env.LOGS }}
         run: |
-          echo "Creating discussion in GitHub..."
+          echo "Creating GitHub Discussion with logs..."
           
-          LOG_OUTPUT=$(git log -1 --pretty=format:"%b")
-          echo "Log Output: $LOG_OUTPUT"
-          
+          LOG_CONTENT=$(echo "$LOGS" | base64 -d | tail -n 50) # Show last 50 lines
+
           GRAPHQL_QUERY=$(jq -n \
             --arg repoId "$REPO_ID" \
             --arg categoryId "$CATEGORY_ID" \
             --arg title "New Commit: $COMMIT_MESSAGE" \
-            --arg body "*Commit Details:*\n\n- **Commit Hash:** $COMMIT_HASH\n- **Author:** $AUTHOR_NAME (<$AUTHOR_GITHUB>)\n- **Commit Message:** $COMMIT_MESSAGE\n\n*Commit Logs:*\n\n\`\`\`\n$LOG_OUTPUT\n\`\`\`" \
+            --arg body "*Commit Details:*\n\n- **Commit Hash:** $COMMIT_HASH\n- **Author:** $AUTHOR_NAME (<$AUTHOR_GITHUB>)\n- **Commit Message:** $COMMIT_MESSAGE\n\n*Commit Logs (last 50 lines):*\n\n\`\`\`\n$LOG_CONTENT\n\`\`\`" \
             '{ "query": "mutation createDiscussion($repoId: ID!, $categoryId: ID!, $title: String!, $body: String!) { createDiscussion(input: {repositoryId: $repoId, categoryId: $categoryId, title: $title, body: $body}) { discussion { id } } }", "variables": { "repoId": $repoId, "categoryId": $categoryId, "title": $title, "body": $body } }')
 
-          echo "GraphQL Query: $GRAPHQL_QUERY"
-
+          echo "Posting discussion..."
           curl -X POST \
             -H "Authorization: Bearer $GH_TOKEN" \
             -H "Accept: application/vnd.github.v4+json" \
